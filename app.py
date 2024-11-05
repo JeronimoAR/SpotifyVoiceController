@@ -11,7 +11,7 @@ app.config['SESSION_COOKIE_NAME'] = 'Spotify Auth Session'
 
 client_id = os.getenv("CLIENT_ID")
 client_secret = os.getenv("CLIENT_SECRET")
-SPOTIPY_REDIRECT_URI = os.getenv("SPOTIPY_REDIRECT_URI")
+SPOTIPY_REDIRECT_URI = os.getenv("REDIRECT_URI")
 
 scope = 'user-read-private user-read-email user-library-read user-library-modify' \
         ' user-read-playback-state user-modify-playback-state user-read-currently-playing playlist-read-private ' \
