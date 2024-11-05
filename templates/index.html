@@ -1,0 +1,25 @@
+{% extends 'base.html' %}
+
+{% block head %}
+<title>Get Song</title>
+{% endblock %}
+
+{% block body %}
+<h1>Get Song Info</h1>
+    <form method="POST">
+        <label for="song_name">Enter Song Name:</label>
+        <input type="text" id="song_name" name="song_name">
+        <button type="submit">Search</button>
+    </form>
+
+    {% if track_info %}
+        {% if track_info.error %}
+            <p>{{ track_info.error }}</p>
+        {% else %}
+            <h2>Song Details</h2>
+            <p>Name: {{ track_info.name }}</p>
+            <p>Artist: {{ track_info.artist }}</p>
+            <p>Album: {{ track_info.album }}</p>
+        {% endif %}
+    {% endif %}
+{% endblock %}
