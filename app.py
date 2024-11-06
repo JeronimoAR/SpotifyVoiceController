@@ -44,8 +44,8 @@ def index():
         if not active_device_id:
             message = "No active device found. Please start playback on one of your devices first."
         else:
-            validatePlayback(sp.current_playback(), active_device_id, sp)
             if request.method == 'POST':
+                validatePlayback(sp.current_playback(), active_device_id, sp)
                 song_name = request.form['song_name']
                 results = sp.search(q=song_name, limit=1)
                 if results['tracks']['items']:
