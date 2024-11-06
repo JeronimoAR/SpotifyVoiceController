@@ -26,16 +26,27 @@ def index():
 
     token_info = session.get('token_info', None)
     track_info = None
+    message = None
 
     try:
-        if request.method == 'POST':
-            song_name = request.form['song_name']
-            try:
-                sp = spotipy.Spotify(auth=token_info['access_token'])
-                playback = sp.current_playback()
-                if playback and not playback['is_playing']:
-                    sp.start_playback()
+        sp = spotipy.Spotify(auth=token_info['access_token'])
 
+        # Get the list of available devices
+        devices = sp.devices()
+        active_device_id = None
+
+        # Find the active device
+        for device in devices['devices']:
+            if device['is_active']:
+                active_device_id = device['id']
+                break
+
+        if not active_device_id:
+            message = "No active device found. Please start playback on one of your devices first."
+        else:
+            validatePlayback(sp.current_playback(), active_device_id, sp)
+            if request.method == 'POST':
+                song_name = request.form['song_name']
                 results = sp.search(q=song_name, limit=1)
                 if results['tracks']['items']:
                     track = results['tracks']['items'][0]
@@ -44,18 +55,17 @@ def index():
                         'artist': track['artists'][0]['name'],
                         'album': track['album']['name'],
                     }
-                    sp.add_to_queue(track['id'])
-                    sp.next_track()
+                    sp.add_to_queue(track['id'], device_id=active_device_id)
+                    sp.next_track(device_id=active_device_id)
                 else:
                     track_info = {'error': 'Song not found'}
-            except spotipy.exceptions.SpotifyException as e:
-                print(e)
-                track_info = {'error': str(e)}
+
+
     except SpotifyOauthError as eAuth:
         print(eAuth)
         return redirect(url_for('login'))
 
-    return render_template('index.html', track_info=track_info)
+    return render_template('index.html', track_info=track_info, message=message)
 
 
 @app.route('/callback')
@@ -80,6 +90,9 @@ def login():
     auth_url = sp_oauth.get_authorize_url()
     return redirect(auth_url)
 
+def validatePlayback(playback, active_device_id, sp):
+    if playback and not playback['is_playing']:
+        sp.start_playback(device_id=active_device_id)
 
 if __name__ == '__main__':
     app.run(debug=True)
