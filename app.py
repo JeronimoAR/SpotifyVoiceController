@@ -21,20 +21,14 @@ scope = 'user-read-private user-read-email user-library-read user-library-modify
 
 @app.route('/', methods=['GET', 'POST'])
 def index():
-    global token_info
-    global sp
+    if 'token_info' not in session:
+        return redirect(url_for('login'))
+
+    token_info = session.get('token_info', None)
     track_info = None
 
     try:
-        token_info = session.get('token_info', None)
-        if not token_info:
-            return redirect(url_for('login'))
-    except spotipy.exceptions.SpotifyException as e:
-        print(f"Exception: {e}")
-
-    try:
         if request.method == 'POST':
-
             song_name = request.form['song_name']
             try:
                 sp = spotipy.Spotify(auth=token_info['access_token'])
@@ -59,7 +53,7 @@ def index():
                 track_info = {'error': str(e)}
     except SpotifyOauthError as eAuth:
         print(eAuth)
-        return redirect(url_for('/login'))
+        return redirect(url_for('login'))
 
     return render_template('index.html', track_info=track_info)
 
