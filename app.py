@@ -31,36 +31,40 @@ def index():
     try:
         sp = spotipy.Spotify(auth=token_info['access_token'])
 
-        # Get the list of available devices
-        devices = sp.devices()
-        active_device_id = None
+        user = sp.current_user()
+        if user['product'] != 'premium':
+            message = "This feature is only available for Spotify Premium users. " \
+                      "Please upgrade to use this functionality."
 
-        # Find the active device
-        for device in devices['devices']:
-            if device['is_active']:
-                active_device_id = device['id']
-                break
-
-        if not active_device_id:
-            message = "No active device found. Please start playback on one of your devices first."
         else:
-            if request.method == 'POST':
-                validatePlayback(sp.current_playback(), active_device_id, sp)
-                song_name = request.form['song_name']
-                results = sp.search(q=song_name, limit=1)
-                if results['tracks']['items']:
-                    track = results['tracks']['items'][0]
-                    track_info = {
-                        'name': track['name'],
-                        'artist': track['artists'][0]['name'],
-                        'album': track['album']['name'],
-                    }
-                    sp.add_to_queue(track['id'], device_id=active_device_id)
-                    sp.next_track(device_id=active_device_id)
-                else:
-                    track_info = {'error': 'Song not found'}
+            # Get the list of available devices
+            devices = sp.devices()
+            active_device_id = None
 
+            # Find the active device
+            for device in devices['devices']:
+                if device['is_active']:
+                    active_device_id = device['id']
+                    break
 
+            if not active_device_id:
+                message = "No active device found. Please start playback on one of your devices first."
+            else:
+                if request.method == 'POST':
+                    validatePlayback(sp.current_playback(), active_device_id, sp)
+                    song_name = request.form['song_name']
+                    results = sp.search(q=song_name, limit=1)
+                    if results['tracks']['items']:
+                        track = results['tracks']['items'][0]
+                        track_info = {
+                            'name': track['name'],
+                            'artist': track['artists'][0]['name'],
+                            'album': track['album']['name'],
+                        }
+                        sp.add_to_queue(track['id'], device_id=active_device_id)
+                        sp.next_track(device_id=active_device_id)
+                    else:
+                        track_info = {'error': 'Song not found'}
     except SpotifyOauthError as eAuth:
         print(eAuth)
         return redirect(url_for('login'))

@@ -12,6 +12,10 @@
         <button type="submit">Search</button>
     </form>
 
+    {% if message %}
+        <p>{{ message }}</p>
+    {% endif %}
+
     {% if track_info %}
         {% if track_info.error %}
             <p>{{ track_info.error }}</p>
