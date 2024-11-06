@@ -32,11 +32,12 @@ def index():
         sp = spotipy.Spotify(auth=token_info['access_token'])
 
         user = sp.current_user()
+        print(user)
         if user['product'] != 'premium':
             message = "This feature is only available for Spotify Premium users. " \
                       "Please upgrade to use this functionality."
-
-        else:
+        elif(user['product'] == 'premium'):
+            message = "Enjoy the use of this app"
             # Get the list of available devices
             devices = sp.devices()
             active_device_id = None
@@ -99,4 +100,5 @@ def validatePlayback(playback, active_device_id, sp):
         sp.start_playback(device_id=active_device_id)
 
 if __name__ == '__main__':
-    app.run(debug=True)
+    app.run(host='192.168.5.106', port=5000, debug=True)
+
