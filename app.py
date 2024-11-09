@@ -33,6 +33,7 @@ sp_oauth = SpotifyOAuth(client_id=client_id,
                         client_secret=client_secret,
                         redirect_uri=SPOTIPY_REDIRECT_URI,
                         scope=scope,
+                        cache_path=None,  # Disable server-side caching
                         show_dialog=True)
 
 def is_token_expired(token_info):
@@ -63,20 +64,37 @@ def index():
         try:
             sp = spotipy.Spotify(auth=token_info['access_token'])
 
-            if request.method == 'POST':
-                song_name = request.form['song_name']
-                results = sp.search(q=song_name, limit=1)
-                if results['tracks']['items']:
-                    track = results['tracks']['items'][0]
-                    track_info = {
-                        'name': track['name'],
-                        'artist': track['artists'][0]['name'],
-                        'album': track['album']['name'],
-                    }
-                    sp.add_to_queue(track['id'])
-                    sp.next_track()
+            # Get the list of available devices
+            devices = sp.devices()
+            active_device_id = None
+
+            # Find the active device
+            for device in devices['devices']:
+                if device['is_active']:
+                    active_device_id = device['id']
+                    break
+
+            if not active_device_id:
+                message = "No active device found. Please activate a device on your Spotify account and try again."
+            else:
+                if request.method == 'POST':
+                    song_name = request.form['song_name']
+                    results = sp.search(q=song_name, limit=1)
+                    if results['tracks']['items']:
+                        track = results['tracks']['items'][0]
+                        track_info = {
+                            'name': track['name'],
+                            'artist': track['artists'][0]['name'],
+                            'album': track['album']['name'],
+                        }
+                        sp.add_to_queue(track['id'], device_id=active_device_id)
+                        sp.start_playback(device_id=active_device_id)
+                    else:
+                        track_info = {'error': 'Song not found'}
                 else:
-                    track_info = {'error': 'Song not found'}
+                    playback = sp.current_playback()
+                    if playback and not playback['is_playing']:
+                        sp.start_playback(device_id=active_device_id)
 
         except SpotifyOauthError as eAuth:
             logger.error(f"Spotify OAuth error: {eAuth}")
@@ -94,9 +112,11 @@ def index():
 
 @app.route('/callback')
 def callback():
+    # Obtain the authorization code from the callback
+    code = request.args.get('code')
 
     # Exchange the authorization code for an access token and refresh token
-    token_info = sp_oauth.get_cached_token()
+    token_info = sp_oauth.get_access_token(code)
     session['token_info'] = token_info
 
     # Create a Spotify client with the access token
