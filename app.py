@@ -88,7 +88,7 @@ def index():
                             'album': track['album']['name'],
                         }
                         sp.add_to_queue(track['id'], device_id=active_device_id)
-                        sp.start_playback(device_id=active_device_id)
+                        sp.next_track(device_id=active_device_id)
                     else:
                         track_info = {'error': 'Song not found'}
                 else:
@@ -120,7 +120,7 @@ def callback():
     session['token_info'] = token_info
 
     # Create a Spotify client with the access token
-    sp = spotipy.Spotify(auth=token_info['access_token'])
+    sp = spotipy.Spotify(auth=session['token_info']['access_token'])
 
     # Fetch and print the current user's details for verification
     user = sp.current_user()
