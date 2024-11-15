@@ -5,20 +5,18 @@ import spotipy
 from spotipy.oauth2 import SpotifyOAuth, SpotifyOauthError
 from spotipy import SpotifyException
 import logging
-import time
+from functools import wraps
 
-# Load environment variables
+# Load environment variables and setup logging (unchanged)
 load_dotenv()
-
-# Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# Flask app setup
 app = Flask(__name__)
-app.secret_key = os.getenv("SECRET_KEY", 'supersecretkey')  # Store your secret key securely
+app.secret_key = os.getenv("SECRET_KEY", 'supersecretkey')
 app.config['SESSION_COOKIE_NAME'] = 'Spotify Auth Session'
 
+# Environment variables
 client_id = os.getenv("CLIENT_ID")
 client_secret = os.getenv("CLIENT_SECRET")
 SPOTIPY_REDIRECT_URI = os.getenv("REDIRECT_URI")
@@ -28,118 +26,139 @@ scope = 'user-read-private user-read-email user-library-read user-library-modify
         'playlist-modify-private playlist-modify-public user-follow-read user-follow-modify user-top-read ' \
         'user-read-recently-played app-remote-control streaming'
 
-# Create a single SpotifyOAuth instance
-sp_oauth = SpotifyOAuth(client_id=client_id,
-                        client_secret=client_secret,
-                        redirect_uri=SPOTIPY_REDIRECT_URI,
-                        scope=scope,
-                        cache_path=None,  # Disable server-side caching
-                        show_dialog=True)
 
-def is_token_expired(token_info):
-    now = int(time.time())
-    return token_info['expires_at'] - now < 60
+def create_spotify_oauth(session_id=None):
+    cache_handler = spotipy.cache_handler.FlaskSessionCacheHandler(session)
+    return SpotifyOAuth(
+        client_id=client_id,
+        client_secret=client_secret,
+        redirect_uri=SPOTIPY_REDIRECT_URI,
+        scope=scope,
+        cache_handler=cache_handler,
+        show_dialog=True
+    )
+
+
+def login_required(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        token_info = get_token()
+        if not token_info:
+            return redirect(url_for('login'))
+        return f(*args, **kwargs)
+
+    return decorated_function
+
 
 def get_token():
-    token_info = session.get('token_info', None)
-    if not token_info:
+    try:
+        cache_handler = spotipy.cache_handler.FlaskSessionCacheHandler(session)
+        auth_manager = SpotifyOAuth(
+            client_id=client_id,
+            client_secret=client_secret,
+            redirect_uri=SPOTIPY_REDIRECT_URI,
+            scope=scope,
+            cache_handler=cache_handler
+        )
+        if not auth_manager.validate_token(cache_handler.get_cached_token()):
+            return None
+        return cache_handler.get_cached_token()
+    except Exception as e:
+        logger.error(f"Error getting token: {e}")
         return None
 
-    if is_token_expired(token_info):
-        token_info = sp_oauth.refresh_access_token(token_info['refresh_token'])
-        session['token_info'] = token_info
-    return token_info
 
 @app.route('/', methods=['GET', 'POST'])
+@login_required
 def index():
     message = None
-    logged_in = False
     track_info = None
 
-    token_info = get_token()
+    try:
+        token_info = get_token()
+        sp = spotipy.Spotify(auth=token_info['access_token'])
 
-    if token_info:
-        logged_in = True
+        # Get current user info for verification
+        current_user = sp.current_user()
+        logger.info(f"Current user: {current_user['id']}")
 
-        try:
-            sp = spotipy.Spotify(auth=token_info['access_token'])
+        # Get the list of available devices
+        devices = sp.devices()
+        active_device_id = next((device['id'] for device in devices['devices'] if device['is_active']), None)
 
-            # Get the list of available devices
-            devices = sp.devices()
-            active_device_id = None
-
-            # Find the active device
-            for device in devices['devices']:
-                if device['is_active']:
-                    active_device_id = device['id']
-                    break
-
-            if not active_device_id:
-                message = "No active device found. Please activate a device on your Spotify account and try again."
-            else:
-                if request.method == 'POST':
-                    song_name = request.form['song_name']
-                    results = sp.search(q=song_name, limit=1)
-                    if results['tracks']['items']:
-                        track = results['tracks']['items'][0]
-                        track_info = {
-                            'name': track['name'],
-                            'artist': track['artists'][0]['name'],
-                            'album': track['album']['name'],
-                        }
-                        sp.add_to_queue(track['id'], device_id=active_device_id)
-                        sp.next_track(device_id=active_device_id)
-                    else:
-                        track_info = {'error': 'Song not found'}
+        if not active_device_id:
+            message = "No active device found. Please activate a device on your Spotify account and try again."
+        else:
+            if request.method == 'POST':
+                song_name = request.form['song_name']
+                results = sp.search(q=song_name, limit=1)
+                if results['tracks']['items']:
+                    track = results['tracks']['items'][0]
+                    track_info = {
+                        'name': track['name'],
+                        'artist': track['artists'][0]['name'],
+                        'album': track['album']['name'],
+                    }
+                    sp.add_to_queue(track['id'], device_id=active_device_id)
+                    sp.next_track(device_id=active_device_id)
                 else:
-                    playback = sp.current_playback()
-                    if playback and not playback['is_playing']:
-                        sp.start_playback(device_id=active_device_id)
+                    track_info = {'error': 'Song not found'}
+            else:
+                playback = sp.current_playback()
+                if playback and not playback['is_playing']:
+                    sp.start_playback(device_id=active_device_id)
 
-        except SpotifyOauthError as eAuth:
-            logger.error(f"Spotify OAuth error: {eAuth}")
-            return redirect(url_for('login'))
-        except SpotifyException as SpException:
-            logger.error(f"Spotify API error: {SpException}")
-            message = "There was a problem with the Spotify API. Please try again later."
-        except Exception as e:
-            logger.error(f"An unexpected error occurred: {e}")
-            message = "An unexpected error occurred. Please try again later."
-    else:
+    except SpotifyOauthError as eAuth:
+        logger.error(f"Spotify OAuth error: {eAuth}")
         return redirect(url_for('login'))
+    except SpotifyException as SpException:
+        logger.error(f"Spotify API error: {SpException}")
+        message = "There was a problem with the Spotify API. Please try again later."
+    except Exception as e:
+        logger.error(f"An unexpected error occurred: {e}")
+        message = "An unexpected error occurred. Please try again later."
 
-    return render_template('index.html', track_info=track_info, message=message, logged_in=logged_in)
+    return render_template('index.html', track_info=track_info, message=message, logged_in=True)
+
 
 @app.route('/callback')
 def callback():
-    # Obtain the authorization code from the callback
-    code = request.args.get('code')
+    try:
+        cache_handler = spotipy.cache_handler.FlaskSessionCacheHandler(session)
+        auth_manager = SpotifyOAuth(
+            client_id=client_id,
+            client_secret=client_secret,
+            redirect_uri=SPOTIPY_REDIRECT_URI,
+            scope=scope,
+            cache_handler=cache_handler
+        )
 
-    # Exchange the authorization code for an access token and refresh token
-    token_info = sp_oauth.get_access_token(code)
-    session['token_info'] = token_info
+        code = request.args.get('code')
+        token_info = auth_manager.get_access_token(code)
 
-    # Create a Spotify client with the access token
-    sp = spotipy.Spotify(auth=session['token_info']['access_token'])
+        # Create a Spotify client and get user info
+        sp = spotipy.Spotify(auth=token_info['access_token'])
+        user = sp.current_user()
+        logger.info(f"Logged in as: {user['display_name']} ({user['id']})")
 
-    # Fetch and print the current user's details for verification
-    user = sp.current_user()
-    print(f"Logged in as: {user['display_name']} ({user['id']})")
+        return redirect(url_for('index'))
+    except Exception as e:
+        logger.error(f"Error in callback: {e}")
+        return redirect(url_for('login'))
 
-    return redirect(url_for('index'))
 
 @app.route('/login')
 def login():
-    auth_url = sp_oauth.get_authorize_url()
+    auth_manager = create_spotify_oauth()
+    auth_url = auth_manager.get_authorize_url()
     return redirect(auth_url)
+
 
 @app.route('/logout')
 def logout():
-    # Clear the token from the session
-    session.pop('token_info', None)
-    # Clear the entire session
     session.clear()
-    return redirect("/")
+    return redirect(url_for('index'))
+
 
 if __name__ == '__main__':
     app.run(host='192.168.5.106', port=5000, debug=True)

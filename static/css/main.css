@@ -1,64 +1,146 @@
-body {
-    font-family: Arial, sans-serif;
+:root {
+    --spotify-green: #1DB954;
+    --spotify-black: #191414;
+    --error-red: #e74c3c;
+    --success-green: #2ecc71;
+}
+
+* {
     margin: 0;
-    padding: 20px;
-    background-color: #f4f4f4;
-}
-.container {
-    max-width: 600px;
-    margin: auto;
-    background: white;
-    padding: 20px;
-    box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
-}
-.logout-btn {
-    background-color: #f44336;
-    color: white;
-    border: none;
-    padding: 10px 20px;
-    text-align: center;
-    text-decoration: none;
-    display: inline-block;
-    font-size: 16px;
-    margin: 4px 2px;
-    cursor: pointer;
-}
-.logout-btn:hover {
-    background-color: #d32f2f;
-}
-input[type=text] {
-    width: calc(100% - 22px);
-    padding: 10px;
-    margin: 10px 0;
+    padding: 0;
     box-sizing: border-box;
+    font-family: 'Helvetica Neue', Arial, sans-serif;
 }
-button {
-    background-color: #4CAF50;
+
+body {
+    background-color: var(--spotify-black);
     color: white;
-    border: none;
+    min-height: 100vh;
+    padding: 20px;
+}
+
+.container {
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 20px;
+}
+
+.header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 40px;
+    padding-bottom: 20px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.logo {
+    font-size: 24px;
+    font-weight: bold;
+    color: var(--spotify-green);
+}
+
+.auth-status {
+    padding: 8px 16px;
+    border-radius: 20px;
+    font-size: 14px;
+    font-weight: bold;
+}
+
+.logged-in {
+    background-color: var(--success-green);
+}
+
+.logged-out {
+    background-color: var(--error-red);
+}
+
+.nav-buttons {
+    display: flex;
+    gap: 10px;
+}
+
+.btn {
     padding: 10px 20px;
-    text-align: center;
-    text-decoration: none;
-    display: inline-block;
-    font-size: 16px;
-    margin: 4px 2px;
+    border: none;
+    border-radius: 20px;
+    font-size: 14px;
+    font-weight: bold;
     cursor: pointer;
+    transition: opacity 0.2s;
+    text-decoration: none;
+    color: white;
 }
-button:hover {
-    background-color: #45a049;
+
+.btn:hover {
+    opacity: 0.8;
 }
-p {
-    margin: 10px 0;
+
+.btn-primary {
+    background-color: var(--spotify-green);
 }
-.status-light {
-    width: 20px;
-    height: 20px;
-    border-radius: 50%;
-    display: inline-block;
+
+.btn-secondary {
+    background-color: transparent;
+    border: 1px solid white;
 }
-.status-light.green {
-    background-color: green;
+
+.search-form {
+    margin: 40px 0;
 }
-.status-light.red {
-    background-color: red;
+
+.search-container {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 20px;
+}
+
+.search-input {
+    flex: 1;
+    padding: 12px 20px;
+    border: none;
+    border-radius: 20px;
+    background-color: rgba(255, 255, 255, 0.1);
+    color: white;
+    font-size: 16px;
+}
+
+.search-input:focus {
+    outline: none;
+    background-color: rgba(255, 255, 255, 0.15);
+}
+
+.search-input::placeholder {
+    color: rgba(255, 255, 255, 0.5);
+}
+
+.track-info {
+    background-color: rgba(255, 255, 255, 0.05);
+    border-radius: 10px;
+    padding: 20px;
+    margin-top: 20px;
+}
+
+.track-info h3 {
+    color: var(--spotify-green);
+    margin-bottom: 10px;
+}
+
+.track-details {
+    display: grid;
+    gap: 10px;
+    color: rgba(255, 255, 255, 0.8);
+}
+
+.message {
+    background-color: rgba(255, 255, 255, 0.05);
+    padding: 15px;
+    border-radius: 10px;
+    margin: 20px 0;
+    color: rgba(255, 255, 255, 0.8);
+}
+
+.error {
+    background-color: rgba(231, 76, 60, 0.1);
+    color: var(--error-red);
 }
