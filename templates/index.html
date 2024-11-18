@@ -6,23 +6,51 @@
 
 {% block body %}
 <div class="container">
-    <h1>Spotify Controller</h1>
-    <div class="status-light {{ 'green' if logged_in else 'red' }}"></div>
-    <p>{{ 'Logged in' if logged_in else 'Logged out' }}</p> 
-        {% if message %} 
-                <p>{{ message }}</p> 
-            {% endif %} 
-                <form method="post"> 
-                    <input type="text" name="song_name" placeholder="Enter song name">
-                    <button type="submit">Play</button> 
-                </form> 
-            {% if track_info %} 
-            {% if track_info.error %} 
-                <p>Error: {{track_info.error }}</p> 
-            {% else %} 
-                <p>Now playing: {{ track_info.name }} by {{ track_info.artist }} from the album {{ track_info.album }}</p> 
-            {% endif %} 
-        {% endif %} 
-    <a href="{{ url_for('logout') }}" class="logout-btn">Logout</a>
+        <header class="header">
+            <div class="logo">Spotify Controller</div>
+            <div class="nav-buttons">
+                {% if logged_in %}
+                    <span class="auth-status logged-in">Logged In</span>
+                    <a href="{{ url_for('logout') }}" class="btn btn-secondary">Logout</a>
+                {% else %}
+                    <span class="auth-status logged-out">Logged Out</span>
+                    <a href="{{ url_for('login') }}" class="btn btn-primary">Login with Spotify</a>
+                {% endif %}
+            </div>
+        </header>
+
+        {% if logged_in %}
+            <form method="POST" class="search-form">
+                <div class="search-container">
+                    <input type="text"
+                           name="song_name"
+                           class="search-input"
+                           placeholder="Search for a song..."
+                           required>
+                    <button type="submit" class="btn btn-primary">Add to Queue</button>
+                </div>
+            </form>
+
+            {% if message %}
+                <div class="message {% if 'error' in message.lower() %}error{% endif %}">
+                    {{ message }}
+                </div>
+            {% endif %}
+
+            {% if track_info %}
+                <div class="track-info">
+                    {% if track_info.error %}
+                        <div class="error">{{ track_info.error }}</div>
+                    {% else %}
+                        <h3>Added to Queue:</h3>
+                        <div class="track-details">
+                            <div>Song: {{ track_info.name }}</div>
+                            <div>Artist: {{ track_info.artist }}</div>
+                            <div>Album: {{ track_info.album }}</div>
+                        </div>
+                    {% endif %}
+                </div>
+            {% endif %}
+        {% endif %}
 </div>
 {% endblock %}
