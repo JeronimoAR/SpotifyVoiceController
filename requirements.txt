@@ -8,4 +8,5 @@ spotipy==2.24.0
 gunicorn==20.1.0
 SpeechRecognition
 wheel
-pyaudio; sys_platform == 'linux'
+pyaudio==0.2.11
+
