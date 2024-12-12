@@ -7,6 +7,5 @@ python-dotenv==1.0.1
 spotipy==2.24.0
 gunicorn==20.1.0
 SpeechRecognition
---no-binary :all:
 wheel
-pyaudio
+pyaudio; sys_platform == 'linux'
