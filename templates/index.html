@@ -6,20 +6,21 @@
 
 {% block body %}
 <div class="container">
-        <header class="header">
-            <div class="logo">Spotify Controller</div>
-            <div class="nav-buttons">
-                {% if logged_in %}
-                    <span class="auth-status logged-in">Logged In</span>
-                    <a href="{{ url_for('logout') }}" class="btn btn-secondary">Logout</a>
-                {% else %}
-                    <span class="auth-status logged-out">Logged Out</span>
-                    <a href="{{ url_for('login') }}" class="btn btn-primary">Login with Spotify</a>
-                {% endif %}
-            </div>
-        </header>
+    <header class="header">
+        <div class="logo">Spotify Controller</div>
+        <div class="nav-buttons">
+            {% if logged_in %}
+                <span class="auth-status logged-in">Logged In</span>
+                <a href="{{ url_for('logout') }}" class="btn btn-secondary">Logout</a>
+            {% else %}
+                <span class="auth-status logged-out">Logged Out</span>
+                <a href="{{ url_for('login') }}" class="btn btn-primary">Login with Spotify</a>
+            {% endif %}
+        </div>
+    </header>
 
-        {% if logged_in %}
+    {% if logged_in %}
+        <div class="control-section">
             <form method="POST" class="search-form">
                 <div class="search-container">
                     <input type="text"
@@ -31,26 +32,52 @@
                 </div>
             </form>
 
-            {% if message %}
-                <div class="message {% if 'error' in message.lower() %}error{% endif %}">
-                    {{ message }}
+            <div class="voice-control-section">
+                {% if not voice_control_active %}
+                <form method="POST" class="voice-control-form">
+                    <button type="submit" name="start_voice_control" value="1" class="btn btn-success">
+                        🎙️ Start Voice Control
+                    </button>
+                </form>
+                {% else %}
+                <div class="voice-control-active">
+                    <p class="voice-active-message">🔊 Voice Control Active</p>
+                    <div class="voice-instructions">
+                        <p>Try these voice commands:</p>
+                        <ul>
+                            <li>"Pause" or "Stop"</li>
+                            <li>"Play" or "Resume"</li>
+                            <li>"Next" or "Skip"</li>
+                            <li>"Previous" or "Back"</li>
+                            <li>"Volume Up"</li>
+                            <li>"Volume Down"</li>
+                        </ul>
+                    </div>
                 </div>
-            {% endif %}
+                {% endif %}
+            </div>
+        </div>
 
-            {% if track_info %}
-                <div class="track-info">
-                    {% if track_info.error %}
-                        <div class="error">{{ track_info.error }}</div>
-                    {% else %}
-                        <h3>Added to Queue:</h3>
-                        <div class="track-details">
-                            <div>Song: {{ track_info.name }}</div>
-                            <div>Artist: {{ track_info.artist }}</div>
-                            <div>Album: {{ track_info.album }}</div>
-                        </div>
-                    {% endif %}
-                </div>
-            {% endif %}
+        {% if message %}
+            <div class="message {% if 'error' in message.lower() %}error{% else %}success{% endif %}">
+                {{ message }}
+            </div>
         {% endif %}
+
+        {% if track_info %}
+            <div class="track-info">
+                {% if track_info.error %}
+                    <div class="error">{{ track_info.error }}</div>
+                {% else %}
+                    <h3>Added to Queue:</h3>
+                    <div class="track-details">
+                        <div>Song: {{ track_info.name }}</div>
+                        <div>Artist: {{ track_info.artist }}</div>
+                        <div>Album: {{ track_info.album }}</div>
+                    </div>
+                {% endif %}
+            </div>
+        {% endif %}
+    {% endif %}
 </div>
 {% endblock %}

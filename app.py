@@ -6,6 +6,9 @@ from spotipy.oauth2 import SpotifyOAuth, SpotifyOauthError
 from spotipy import SpotifyException
 import logging
 from functools import wraps
+import speech_recognition as sr
+import threading
+import queue
 
 # Load environment variables and setup logging (unchanged)
 load_dotenv()
@@ -25,6 +28,9 @@ scope = 'user-read-private user-read-email user-library-read user-library-modify
         'user-modify-playback-state user-read-currently-playing playlist-read-private playlist-read-collaborative ' \
         'playlist-modify-private playlist-modify-public user-follow-read user-follow-modify user-top-read ' \
         'user-read-recently-played app-remote-control streaming'
+
+# Voice command queue
+voice_command_queue = queue.Queue()
 
 
 def create_spotify_oauth(session_id=None):
@@ -68,11 +74,62 @@ def get_token():
         return None
 
 
+def process_voice_command(sp, active_device_id):
+    """Process voice commands for Spotify control."""
+    recognizer = sr.Recognizer()
+
+    while True:
+        try:
+            # Use microphone to listen for commands
+            with sr.Microphone() as source:
+                print("Listening for Spotify commands...")
+                recognizer.adjust_for_ambient_noise(source, duration=1)
+                audio = recognizer.listen(source)
+
+                # Recognize speech
+                command = recognizer.recognize_google(audio).lower()
+                print(f"Recognized command: {command}")
+
+                # Spotify control commands
+                if 'pause' in command or 'stop' in command:
+                    sp.pause_playback(device_id=active_device_id)
+                    print("Playback paused")
+                elif 'play' in command or 'resume' in command:
+                    sp.start_playback(device_id=active_device_id)
+                    print("Playback resumed")
+                elif 'next' in command or 'skip' in command:
+                    sp.next_track(device_id=active_device_id)
+                    print("Skipped to next track")
+                elif 'previous' in command or 'back' in command:
+                    sp.previous_track(device_id=active_device_id)
+                    print("Went back to previous track")
+                elif 'volume up' in command:
+                    current_playback = sp.current_playback()
+                    current_volume = current_playback['device']['volume_percent']
+                    sp.volume(min(current_volume + 10, 100), device_id=active_device_id)
+                    print("Volume increased")
+                elif 'volume down' in command:
+                    current_playback = sp.current_playback()
+                    current_volume = current_playback['device']['volume_percent']
+                    sp.volume(max(current_volume - 10, 0), device_id=active_device_id)
+                    print("Volume decreased")
+
+        except sr.UnknownValueError:
+            print("Could not understand audio")
+        except sr.RequestError as e:
+            print(f"Could not request results; {e}")
+        except SpotifyException as e:
+            print(f"Spotify API error: {e}")
+        except Exception as e:
+            print(f"Unexpected error: {e}")
+
+
 @app.route('/', methods=['GET', 'POST'])
 @login_required
 def index():
     message = None
     track_info = None
+    voice_control_active = False
 
     try:
         token_info = get_token()
@@ -90,19 +147,32 @@ def index():
             message = "No active device found. Please activate a device on your Spotify account and try again."
         else:
             if request.method == 'POST':
-                song_name = request.form['song_name']
-                results = sp.search(q=song_name, limit=1)
-                if results['tracks']['items']:
-                    track = results['tracks']['items'][0]
-                    track_info = {
-                        'name': track['name'],
-                        'artist': track['artists'][0]['name'],
-                        'album': track['album']['name'],
-                    }
-                    sp.add_to_queue(track['id'], device_id=active_device_id)
-                    sp.next_track(device_id=active_device_id)
+                # Check if it's a voice control request
+                if 'start_voice_control' in request.form:
+                    # Start voice control in a separate thread
+                    voice_thread = threading.Thread(
+                        target=process_voice_command,
+                        args=(sp, active_device_id),
+                        daemon=True
+                    )
+                    voice_thread.start()
+                    voice_control_active = True
+                    message = "Voice control activated. Start speaking commands!"
                 else:
-                    track_info = {'error': 'Song not found'}
+                    # Existing song search functionality
+                    song_name = request.form['song_name']
+                    results = sp.search(q=song_name, limit=1)
+                    if results['tracks']['items']:
+                        track = results['tracks']['items'][0]
+                        track_info = {
+                            'name': track['name'],
+                            'artist': track['artists'][0]['name'],
+                            'album': track['album']['name'],
+                        }
+                        sp.add_to_queue(track['id'], device_id=active_device_id)
+                        sp.next_track(device_id=active_device_id)
+                    else:
+                        track_info = {'error': 'Song not found'}
             else:
                 playback = sp.current_playback()
                 if playback and not playback['is_playing']:
@@ -118,8 +188,11 @@ def index():
         logger.error(f"An unexpected error occurred: {e}")
         message = "An unexpected error occurred. Please try again later."
 
-    return render_template('index.html', track_info=track_info, message=message, logged_in=True)
-
+    return render_template('index.html',
+                           track_info=track_info,
+                           message=message,
+                           logged_in=True,
+                           voice_control_active=voice_control_active)
 
 @app.route('/callback')
 def callback():
