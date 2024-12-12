@@ -140,6 +140,10 @@ body {
     margin-top: 20px;
 }
 
+#voice-control-toggle{
+    color: #191414;
+}
+
 .voice-control-section {
     background-color: #f4f4f4;
     padding: 15px;

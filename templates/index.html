@@ -26,35 +26,27 @@
                     <input type="text"
                            name="song_name"
                            class="search-input"
-                           placeholder="Search for a song..."
+                           placeholder="Busca una cancion..."
                            required>
-                    <button type="submit" class="btn btn-primary">Add to Queue</button>
+                    <button type="submit" class="btn btn-primary">Reproduce la cancion</button>
                 </div>
             </form>
 
             <div class="voice-control-section">
-                {% if not voice_control_active %}
-                <form method="POST" class="voice-control-form">
-                    <button type="submit" name="start_voice_control" value="1" class="btn btn-success">
-                        🎙️ Start Voice Control
-                    </button>
-                </form>
-                {% else %}
-                <div class="voice-control-active">
-                    <p class="voice-active-message">🔊 Voice Control Active</p>
-                    <div class="voice-instructions">
-                        <p>Try these voice commands:</p>
-                        <ul>
-                            <li>"Pause" or "Stop"</li>
-                            <li>"Play" or "Resume"</li>
-                            <li>"Next" or "Skip"</li>
-                            <li>"Previous" or "Back"</li>
-                            <li>"Volume Up"</li>
-                            <li>"Volume Down"</li>
-                        </ul>
-                    </div>
+                <button id="voice-control-toggle" class="btn btn-success">
+                    🎙️ Activa el control de voz
+                </button>
+                <div id="voice-instructions" class="voice-instructions" style="display: none;">
+                    <p>Control de voz activo, prueba estos comandos:</p>
+                    <ul>
+                        <li>"Pausa" o "Detener" (Pause)</li>
+                        <li>"Reproducir" o "Continuar" (Play)</li>
+                        <li>"Siguiente" o "Saltar" (Next Track)</li>
+                        <li>"Anterior" o "Atrás" (Previous Track)</li>
+                        <li>"Subir Volumen" (Volume Up)</li>
+                        <li>"Bajar Volumen" (Volume Down)</li>
+                    </ul>
                 </div>
-                {% endif %}
             </div>
         </div>
 

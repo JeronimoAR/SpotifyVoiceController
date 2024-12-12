@@ -1,4 +1,4 @@
-from flask import Flask, redirect, request, session, url_for, render_template
+from flask import Flask, redirect, request, session, url_for, render_template, jsonify
 from dotenv import load_dotenv
 import os
 import spotipy
@@ -9,6 +9,7 @@ from functools import wraps
 import speech_recognition as sr
 import threading
 import queue
+import time
 
 # Load environment variables and setup logging (unchanged)
 load_dotenv()
@@ -32,8 +33,11 @@ scope = 'user-read-private user-read-email user-library-read user-library-modify
 # Voice command queue
 voice_command_queue = queue.Queue()
 
+voice_recognition_active = False
+voice_recognition_thread = None
 
-def create_spotify_oauth(session_id=None):
+
+def create_spotify_oauth():
     cache_handler = spotipy.cache_handler.FlaskSessionCacheHandler(session)
     return SpotifyOAuth(
         client_id=client_id,
@@ -75,40 +79,41 @@ def get_token():
 
 
 def process_voice_command(sp, active_device_id):
-    """Process voice commands for Spotify control."""
+    """Process voice commands for Spotify control with toggle support."""
+    global voice_recognition_active
     recognizer = sr.Recognizer()
 
-    while True:
+    while voice_recognition_active:
         try:
             # Use microphone to listen for commands
             with sr.Microphone() as source:
                 print("Listening for Spotify commands...")
                 recognizer.adjust_for_ambient_noise(source, duration=1)
-                audio = recognizer.listen(source)
+                audio = recognizer.listen(source, timeout=5, phrase_time_limit=5)
 
                 # Recognize speech
-                command = recognizer.recognize_google(audio).lower()
+                command = recognizer.recognize_google(audio, language='es-ES').lower()
                 print(f"Recognized command: {command}")
 
-                # Spotify control commands
-                if 'pause' in command or 'stop' in command:
+                # Spotify control commands in Spanish
+                if 'pausa' in command or 'detener' in command:
                     sp.pause_playback(device_id=active_device_id)
                     print("Playback paused")
-                elif 'play' in command or 'resume' in command:
+                elif 'reproducir' in command or 'continuar' in command:
                     sp.start_playback(device_id=active_device_id)
                     print("Playback resumed")
-                elif 'next' in command or 'skip' in command:
+                elif 'siguiente' in command or 'saltar' in command:
                     sp.next_track(device_id=active_device_id)
                     print("Skipped to next track")
-                elif 'previous' in command or 'back' in command:
+                elif 'anterior' in command or 'atrás' in command:
                     sp.previous_track(device_id=active_device_id)
                     print("Went back to previous track")
-                elif 'volume up' in command:
+                elif 'subir volumen' in command:
                     current_playback = sp.current_playback()
                     current_volume = current_playback['device']['volume_percent']
                     sp.volume(min(current_volume + 10, 100), device_id=active_device_id)
                     print("Volume increased")
-                elif 'volume down' in command:
+                elif 'bajar volumen' in command:
                     current_playback = sp.current_playback()
                     current_volume = current_playback['device']['volume_percent']
                     sp.volume(max(current_volume - 10, 0), device_id=active_device_id)
@@ -117,11 +122,70 @@ def process_voice_command(sp, active_device_id):
         except sr.UnknownValueError:
             print("Could not understand audio")
         except sr.RequestError as e:
-            print(f"Could not request results; {e}")
+            print(f"Could not request results {e}")
+        except sr.WaitTimeoutError:
+            # This is expected when no speech is detected
+            continue
         except SpotifyException as e:
             print(f"Spotify API error: {e}")
         except Exception as e:
             print(f"Unexpected error: {e}")
+
+        # Small sleep to prevent tight looping
+        time.sleep(0.5)
+
+
+@app.route('/toggle_voice_control', methods=['POST'])
+@login_required
+def toggle_voice_control():
+    global voice_recognition_active, voice_recognition_thread
+
+    try:
+        token_info = get_token()
+        sp = spotipy.Spotify(auth=token_info['access_token'])
+
+        # Get active device
+        devices = sp.devices()
+        active_device_id = next((device['id'] for device in devices['devices'] if device['is_active']), None)
+
+        if not active_device_id:
+            return jsonify({
+                'success': False,
+                'message': 'No active Spotify device found'
+            }), 400
+
+        # Toggle voice recognition
+        if not voice_recognition_active:
+            # Start voice recognition
+            voice_recognition_active = True
+            voice_recognition_thread = threading.Thread(
+                target=process_voice_command,
+                args=(sp, active_device_id),
+                daemon=True
+            )
+            voice_recognition_thread.start()
+            return jsonify({
+                'success': True,
+                'message': 'Voice control activated',
+                'status': 'active'
+            })
+        else:
+            # Stop voice recognition
+            voice_recognition_active = False
+            if voice_recognition_thread:
+                voice_recognition_thread.join(timeout=2)
+            return jsonify({
+                'success': True,
+                'message': 'Voice control deactivated',
+                'status': 'inactive'
+            })
+
+    except Exception as e:
+        logger.error(f"Voice control toggle error: {e}")
+        return jsonify({
+            'success': False,
+            'message': str(e)
+        }), 500
 
 
 @app.route('/', methods=['GET', 'POST'])
@@ -193,6 +257,7 @@ def index():
                            message=message,
                            logged_in=True,
                            voice_control_active=voice_control_active)
+
 
 @app.route('/callback')
 def callback():
