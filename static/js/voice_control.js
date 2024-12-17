@@ -108,7 +108,7 @@ document.addEventListener('DOMContentLoaded', function () {
                     startSpeechRecognition();
                 }
 
-                if (voiceControlToggle.textContent.includes('Activate')) {
+                if (voiceControlToggle.textContent.includes('Activa')) {
                     recognition.start();
                 } else {
                     recognition.stop();
