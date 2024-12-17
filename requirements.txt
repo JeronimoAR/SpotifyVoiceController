@@ -8,5 +8,6 @@ spotipy==2.24.0
 gunicorn==20.1.0
 SpeechRecognition
 wheel
-pyaudio==0.2.11
+portaudio19-dev
+python3-pyaudio
 
