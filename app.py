@@ -78,69 +78,14 @@ def get_token():
         return None
 
 
-def process_voice_command(sp, active_device_id):
-    """Process voice commands for Spotify control with toggle support."""
-    global voice_recognition_active
-    recognizer = sr.Recognizer()
-
-    while voice_recognition_active:
-        try:
-            # Use microphone to listen for commands
-            with sr.Microphone() as source:
-                print("Listening for Spotify commands...")
-                recognizer.adjust_for_ambient_noise(source, duration=1)
-                audio = recognizer.listen(source, timeout=5, phrase_time_limit=5)
-
-                # Recognize speech
-                command = recognizer.recognize_google(audio, language='es-ES').lower()
-                print(f"Recognized command: {command}")
-
-                # Spotify control commands in Spanish
-                if 'pausa' in command or 'detener' in command:
-                    sp.pause_playback(device_id=active_device_id)
-                    print("Playback paused")
-                elif 'reproducir' in command or 'continuar' in command:
-                    sp.start_playback(device_id=active_device_id)
-                    print("Playback resumed")
-                elif 'siguiente' in command or 'saltar' in command:
-                    sp.next_track(device_id=active_device_id)
-                    print("Skipped to next track")
-                elif 'anterior' in command or 'atrás' in command:
-                    sp.previous_track(device_id=active_device_id)
-                    print("Went back to previous track")
-                elif 'subir volumen' in command:
-                    current_playback = sp.current_playback()
-                    current_volume = current_playback['device']['volume_percent']
-                    sp.volume(min(current_volume + 10, 100), device_id=active_device_id)
-                    print("Volume increased")
-                elif 'bajar volumen' in command:
-                    current_playback = sp.current_playback()
-                    current_volume = current_playback['device']['volume_percent']
-                    sp.volume(max(current_volume - 10, 0), device_id=active_device_id)
-                    print("Volume decreased")
-
-        except sr.UnknownValueError:
-            print("Could not understand audio")
-        except sr.RequestError as e:
-            print(f"Could not request results {e}")
-        except sr.WaitTimeoutError:
-            # This is expected when no speech is detected
-            continue
-        except SpotifyException as e:
-            print(f"Spotify API error: {e}")
-        except Exception as e:
-            print(f"Unexpected error: {e}")
-
-        # Small sleep to prevent tight looping
-        time.sleep(0.5)
-
-
-@app.route('/toggle_voice_control', methods=['POST'])
+@app.route('/process_voice_command', methods=['POST'])
 @login_required
-def toggle_voice_control():
-    global voice_recognition_active, voice_recognition_thread
-
+def process_voice_command():
     try:
+        # Get the voice command from the frontend
+        data = request.json
+        command = data.get('command', '').lower()
+
         token_info = get_token()
         sp = spotipy.Spotify(auth=token_info['access_token'])
 
@@ -154,34 +99,42 @@ def toggle_voice_control():
                 'message': 'No active Spotify device found'
             }), 400
 
-        # Toggle voice recognition
-        if not voice_recognition_active:
-            # Start voice recognition
-            voice_recognition_active = True
-            voice_recognition_thread = threading.Thread(
-                target=process_voice_command,
-                args=(sp, active_device_id),
-                daemon=True
-            )
-            voice_recognition_thread.start()
-            return jsonify({
-                'success': True,
-                'message': 'Voice control activated',
-                'status': 'active'
-            })
-        else:
-            # Stop voice recognition
-            voice_recognition_active = False
-            if voice_recognition_thread:
-                voice_recognition_thread.join(timeout=2)
-            return jsonify({
-                'success': True,
-                'message': 'Voice control deactivated',
-                'status': 'inactive'
-            })
+        # Spotify control commands in Spanish
+        if 'pausa' in command or 'detener' in command:
+            sp.pause_playback(device_id=active_device_id)
+            return jsonify({'success': True, 'action': 'paused'})
+
+        elif 'reproducir' in command or 'continuar' in command:
+            sp.start_playback(device_id=active_device_id)
+            return jsonify({'success': True, 'action': 'resumed'})
+
+        elif 'siguiente' in command or 'saltar' in command:
+            sp.next_track(device_id=active_device_id)
+            return jsonify({'success': True, 'action': 'next track'})
+
+        elif 'anterior' in command or 'atrás' in command:
+            sp.previous_track(device_id=active_device_id)
+            return jsonify({'success': True, 'action': 'previous track'})
+
+        elif 'subir volumen' in command:
+            current_playback = sp.current_playback()
+            current_volume = current_playback['device']['volume_percent']
+            sp.volume(min(current_volume + 10, 100), device_id=active_device_id)
+            return jsonify({'success': True, 'action': 'volume up'})
+
+        elif 'bajar volumen' in command:
+            current_playback = sp.current_playback()
+            current_volume = current_playback['device']['volume_percent']
+            sp.volume(max(current_volume - 10, 0), device_id=active_device_id)
+            return jsonify({'success': True, 'action': 'volume down'})
+
+        return jsonify({
+            'success': False,
+            'message': 'Command not recognized'
+        }), 400
 
     except Exception as e:
-        logger.error(f"Voice control toggle error: {e}")
+        logger.error(f"Voice command processing error: {e}")
         return jsonify({
             'success': False,
             'message': str(e)
