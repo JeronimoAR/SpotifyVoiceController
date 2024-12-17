@@ -6,7 +6,6 @@ Werkzeug==3.0.4
 python-dotenv==1.0.1
 spotipy==2.24.0
 gunicorn==20.1.0
-SpeechRecognition
 wheel
 pyaudio==0.2.11
 

@@ -6,10 +6,9 @@ from spotipy.oauth2 import SpotifyOAuth, SpotifyOauthError
 from spotipy import SpotifyException
 import logging
 from functools import wraps
-import speech_recognition as sr
 import threading
 import queue
-import time
+
 
 # Load environment variables and setup logging (unchanged)
 load_dotenv()
