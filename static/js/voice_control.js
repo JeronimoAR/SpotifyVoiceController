@@ -2,15 +2,14 @@ document.addEventListener('DOMContentLoaded', function () {
     const voiceControlToggle = document.getElementById('voice-control-toggle');
     const voiceInstructions = document.getElementById('voice-instructions');
     let recognition;
+    let isRecognitionActive = false;
 
     // Cross-browser media access request
     function requestMediaAccess() {
-        // Prioritize modern methods
         if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
             return navigator.mediaDevices.getUserMedia({ audio: true });
         }
 
-        // Fallback to older methods
         const getUserMedia =
             navigator.getUserMedia ||
             navigator.webkitGetUserMedia ||
@@ -23,19 +22,19 @@ document.addEventListener('DOMContentLoaded', function () {
             });
         }
 
-        // If no method works
         return Promise.reject(new Error('No getUserMedia method available'));
     }
 
     function startSpeechRecognition() {
         if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
             recognition = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
-            recognition.continuous = false;
+            recognition.continuous = true;  // Change to continuous
             recognition.interimResults = false;
             recognition.lang = 'es-ES';
 
             recognition.onstart = function() {
                 console.log('Speech recognition started');
+                isRecognitionActive = true;
                 voiceControlToggle.textContent = '🔊 Deactivate Voice Control';
                 voiceControlToggle.classList.remove('btn-success');
                 voiceControlToggle.classList.add('btn-danger');
@@ -44,14 +43,20 @@ document.addEventListener('DOMContentLoaded', function () {
 
             recognition.onend = function() {
                 console.log('Speech recognition ended');
+                isRecognitionActive = false;
                 voiceControlToggle.textContent = '🎙️ Activate Voice Control';
                 voiceControlToggle.classList.remove('btn-danger');
                 voiceControlToggle.classList.add('btn-success');
                 voiceInstructions.style.display = 'none';
+
+                // Automatically restart if still meant to be active
+                if (isRecognitionActive) {
+                    recognition.start();
+                }
             };
 
             recognition.onresult = function(event) {
-                const command = event.results[0][0].transcript;
+                const command = event.results[event.results.length - 1][0].transcript;
                 console.log('Recognized command:', command);
 
                 fetch('/process_voice_command', {
@@ -83,15 +88,19 @@ document.addEventListener('DOMContentLoaded', function () {
                 switch(event.error) {
                     case 'not-allowed':
                         alert('Speech recognition blocked. Please allow microphone access in your browser settings.');
+                        isRecognitionActive = false;
                         break;
                     case 'no-speech':
-                        alert('No speech was detected. Please try again.');
+                        // Ignore no-speech errors, continue listening
+                        console.log('No speech detected, continuing...');
                         break;
                     case 'network':
                         alert('Network error occurred during speech recognition.');
+                        isRecognitionActive = false;
                         break;
                     default:
                         alert('Speech recognition error: ' + event.error);
+                        isRecognitionActive = false;
                 }
             };
         } else {
@@ -101,23 +110,24 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     voiceControlToggle.addEventListener('click', function () {
-        // Use our cross-browser media access method
-        requestMediaAccess()
-            .then(function() {
-                if (!recognition) {
-                    startSpeechRecognition();
-                }
-
-                if (voiceControlToggle.textContent.includes('Activa')) {
+        // Toggle recognition
+        if (!isRecognitionActive) {
+            // Start recognition
+            requestMediaAccess()
+                .then(function() {
+                    if (!recognition) {
+                        startSpeechRecognition();
+                    }
                     recognition.start();
-                } else {
-                    recognition.stop();
-                }
-            })
-            .catch(function(err) {
-                console.error('Microphone access denied:', err);
-                alert('Microphone access is required for voice control. Please grant permission or check browser settings.');
-            });
+                })
+                .catch(function(err) {
+                    console.error('Microphone access denied:', err);
+                    alert('Microphone access is required for voice control. Please grant permission or check browser settings.');
+                });
+        } else {
+            // Stop recognition
+            isRecognitionActive = false;
+            recognition.stop();
+        }
     });
-
 });
