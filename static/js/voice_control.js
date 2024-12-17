@@ -120,6 +120,4 @@ document.addEventListener('DOMContentLoaded', function () {
             });
     });
 
-    // Optional: Initial setup
-    startSpeechRecognition();
 });
