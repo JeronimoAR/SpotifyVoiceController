@@ -33,18 +33,16 @@ document.addEventListener('DOMContentLoaded', function () {
             recognition.lang = 'es-ES';
 
             recognition.onstart = function() {
-                console.log('Speech recognition started');
                 isRecognitionActive = true;
-                voiceControlToggle.textContent = '🔊 Deactivate Voice Control';
+                voiceControlToggle.textContent = '🔊 Desactiva el Control de Voz';
                 voiceControlToggle.classList.remove('btn-success');
                 voiceControlToggle.classList.add('btn-danger');
                 voiceInstructions.style.display = 'block';
             };
 
             recognition.onend = function() {
-                console.log('Speech recognition ended');
-                isRecognitionActive = false;
-                voiceControlToggle.textContent = '🎙️ Activate Voice Control';
+
+                voiceControlToggle.textContent = '🎙️ Activa el Control de Voz';
                 voiceControlToggle.classList.remove('btn-danger');
                 voiceControlToggle.classList.add('btn-success');
                 voiceInstructions.style.display = 'none';
@@ -53,11 +51,12 @@ document.addEventListener('DOMContentLoaded', function () {
                 if (isRecognitionActive) {
                     recognition.start();
                 }
+
+                isRecognitionActive = false;
             };
 
             recognition.onresult = function(event) {
                 const command = event.results[event.results.length - 1][0].transcript;
-                console.log('Recognized command:', command);
 
                 fetch('/process_voice_command', {
                     method: 'POST',
@@ -67,15 +66,6 @@ document.addEventListener('DOMContentLoaded', function () {
                     body: JSON.stringify({ command: command })
                 })
                 .then(response => response.json())
-                .then(data => {
-                    if (data.success) {
-                        console.log('Command executed:', data.action);
-                        alert(`Executed: ${data.action}`);
-                    } else {
-                        console.error('Command failed:', data.message);
-                        alert('Command not recognized');
-                    }
-                })
                 .catch(error => {
                     console.error('Error:', error);
                     alert('There was a problem processing the voice command');
@@ -83,7 +73,6 @@ document.addEventListener('DOMContentLoaded', function () {
             };
 
             recognition.onerror = function(event) {
-                console.error('Speech recognition error:', event.error);
 
                 switch(event.error) {
                     case 'not-allowed':
