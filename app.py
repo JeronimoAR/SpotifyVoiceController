@@ -98,39 +98,38 @@ def process_voice_command():
                 'message': 'No active Spotify device found'
             }), 400
 
-        # Spotify control commands in Spanish
         if 'pausa' in command or 'detener' in command:
             sp.pause_playback(device_id=active_device_id)
-            return jsonify({'success': True, 'action': 'paused'})
+            return jsonify({'success': True, 'action': 'pausa'})
 
         elif 'reproducir' in command or 'continuar' in command:
             sp.start_playback(device_id=active_device_id)
-            return jsonify({'success': True, 'action': 'resumed'})
+            return jsonify({'success': True, 'action': 'reproducir'})
 
         elif 'siguiente' in command or 'saltar' in command:
             sp.next_track(device_id=active_device_id)
-            return jsonify({'success': True, 'action': 'next track'})
+            return jsonify({'success': True, 'action': 'Siguiente canción'})
 
         elif 'anterior' in command or 'atrás' in command:
             sp.previous_track(device_id=active_device_id)
-            return jsonify({'success': True, 'action': 'previous track'})
+            return jsonify({'success': True, 'action': 'Siguiente canción'})
 
         elif 'subir volumen' in command:
             current_playback = sp.current_playback()
             current_volume = current_playback['device']['volume_percent']
             sp.volume(min(current_volume + 10, 100), device_id=active_device_id)
-            return jsonify({'success': True, 'action': 'volume up'})
+            return jsonify({'success': True, 'action': 'Mas Volumen'})
 
         elif 'bajar volumen' in command:
             current_playback = sp.current_playback()
             current_volume = current_playback['device']['volume_percent']
             sp.volume(max(current_volume - 10, 0), device_id=active_device_id)
-            return jsonify({'success': True, 'action': 'volume down'})
+            return jsonify({'success': True, 'action': 'Menos Volumen'})
 
         return jsonify({
-            'success': False,
-            'message': 'Command not recognized'
-        }), 400
+            'success': True,
+            'message': 'Comando no reconocido...'
+        })
 
     except Exception as e:
         logger.error(f"Voice command processing error: {e}")

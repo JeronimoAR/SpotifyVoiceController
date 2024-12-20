@@ -1,6 +1,7 @@
 document.addEventListener('DOMContentLoaded', function () {
     const voiceControlToggle = document.getElementById('voice-control-toggle');
     const voiceInstructions = document.getElementById('voice-instructions');
+    const message = document.getElementById('message')
     let recognition;
     let isRecognitionActive = false;
 
@@ -38,6 +39,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 voiceControlToggle.classList.remove('btn-success');
                 voiceControlToggle.classList.add('btn-danger');
                 voiceInstructions.style.display = 'block';
+                message.style.display = 'block'
             };
 
             recognition.onend = function() {
@@ -46,6 +48,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 voiceControlToggle.classList.remove('btn-danger');
                 voiceControlToggle.classList.add('btn-success');
                 voiceInstructions.style.display = 'none';
+                message.style.display = 'none'
 
                 // Automatically restart if still meant to be active
                 if (isRecognitionActive) {
@@ -66,6 +69,15 @@ document.addEventListener('DOMContentLoaded', function () {
                     body: JSON.stringify({ command: command })
                 })
                 .then(response => response.json())
+                .then(data => {
+                    if(data != null){
+                        if(data.message != null){
+                            message.textContent = data.message;
+                        }else if(data.action != null){
+                            message.textContent = data.action;
+                        }
+                    }
+                })
                 .catch(error => {
                     console.error('Error:', error);
                     alert('There was a problem processing the voice command');
