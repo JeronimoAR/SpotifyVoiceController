@@ -112,7 +112,7 @@ def process_voice_command():
 
         elif 'anterior' in command or 'atrás' in command:
             sp.previous_track(device_id=active_device_id)
-            return jsonify({'success': True, 'action': 'Siguiente canción'})
+            return jsonify({'success': True, 'action': 'Cancion anterior'})
 
         elif 'subir volumen' in command:
             current_playback = sp.current_playback()
