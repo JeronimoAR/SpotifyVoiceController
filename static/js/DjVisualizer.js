@@ -92,7 +92,7 @@ class DJVisualizer {
         for (let i = 0; i < segments; i++) {
             const angle = i * angleStep - Math.PI / 2;
             const value = (this.audioData[i] + this.micData[i]) / 2;
-            const radius = this.radius + (value / 360) * 100;
+            const radius = this.radius + (value / 255) * 100;
 
             const x = this.center + Math.cos(angle) * radius;
             const y = this.center + Math.sin(angle) * radius;
