@@ -9,9 +9,78 @@ class DJVisualizer {
         this.isRecognitionActive = false;
         this.recognition;
         this.message = document.getElementById('message');
+        this.spotifyToken = null;
+        
         this.setupCanvas();
         this.bindEvents();
+        
+        // Don't auto-start audio, wait for user interaction
+        const startButton = document.getElementById('start');
+        startButton.addEventListener('click', () => this.startAudioVisualization());
+        
         this.animate();
+    }
+
+    async startAudioVisualization() {
+        if (!this.audioContext) {
+            await this.setupAudioContext();
+        }
+        
+        try {
+            await this.audioContext.resume();
+            this.isPlaying = true;
+            console.log('Audio context started:', this.audioContext.state);
+        } catch (error) {
+            console.error('Error starting audio context:', error);
+        }
+    }
+
+    async setupSpotifyAudio() {
+        try {
+            const response = await fetch('/get-current-playback');
+            const data = await response.json();
+            
+            if (data.is_playing) {
+                console.log('Setting up audio for:', data.item.name);
+                
+                // Create audio element if it doesn't exist
+                if (!this.audioElement) {
+                    this.audioElement = new Audio();
+                    this.audioElement.crossOrigin = "anonymous";
+                    const source = this.audioContext.createMediaElementSource(this.audioElement);
+                    source.connect(this.analyzer);
+                }
+                
+                // Only try to play after user interaction
+                if (this.audioContext.state === 'running') {
+                    this.audioElement.src = data.item.preview_url;
+                    await this.audioElement.play();
+                }
+            }
+        } catch (error) {
+            console.error('Error setting up Spotify audio:', error);
+        }
+    }
+
+    async initializeAudio() {
+        try {
+            console.log('Initializing audio...');
+            await this.setupAudioContext();
+            console.log('Audio context setup complete');
+            
+            // Test if audio context is running
+            console.log('AudioContext state:', this.audioContext.state);
+            if (this.audioContext.state === 'suspended') {
+                console.log('Audio context suspended, waiting for user interaction');
+                // Add a button to start audio context
+                const startButton = document.createElement('button');
+                startButton.textContent = 'Start Audio';
+                startButton.onclick = () => this.audioContext.resume();
+                document.body.appendChild(startButton);
+            }
+        } catch (error) {
+            console.error('Error initializing audio:', error);
+        }
     }
 
     setupCanvas() {
@@ -28,12 +97,112 @@ class DJVisualizer {
         window.addEventListener('resize', resize);
     }
 
-    setupAudioContext() {
+    async getSpotifyToken() {
+        try {
+            const response = await fetch('/get-spotify-token');
+            if (!response.ok) {
+                throw new Error('Failed to fetch token');
+            }
+            const data = await response.json();
+            return data.access_token;
+        } catch (error) {
+            console.error('Error fetching token:', error);
+            return null;
+        }
+    }
+
+    setupSpotifyPlayer() {
+        return new Promise(async (resolve, reject) => {
+            try {
+                // First get the token
+                const token = await this.getSpotifyToken();
+                if (!token) {
+                    throw new Error('No token available');
+                }
+
+                // Create the player
+                this.player = new Spotify.Player({
+                    name: 'Voice Control Visualizer',
+                    getOAuthToken: cb => { cb(token); },
+                    volume: 0.5
+                });
+
+                // Error handling
+                this.player.addListener('initialization_error', ({ message }) => {
+                    console.error('Failed to initialize:', message);
+                    reject(message);
+                });
+
+                this.player.addListener('authentication_error', ({ message }) => {
+                    console.error('Failed to authenticate:', message);
+                    reject(message);
+                });
+
+                this.player.addListener('account_error', ({ message }) => {
+                    console.error('Failed to validate Spotify account:', message);
+                    reject(message);
+                });
+
+                // Ready handling
+                this.player.addListener('ready', ({ device_id }) => {
+                    console.log('Ready with Device ID', device_id);
+                    this.deviceId = device_id;
+                    this.setupAudioContext();
+                    resolve();
+                });
+
+                this.player.addListener('not_ready', ({ device_id }) => {
+                    console.log('Device ID has gone offline', device_id);
+                });
+
+                // Connect to the player
+                const connected = await this.player.connect();
+                if (!connected) {
+                    throw new Error('Failed to connect to Spotify');
+                }
+
+            } catch (error) {
+                console.error('Error setting up Spotify player:', error);
+                reject(error);
+            }
+        });
+    }
+
+    async setupAudioContext() {
+        console.log('Setting up audio context');
         this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        
+        // Create analyzer
         this.analyzer = this.audioContext.createAnalyser();
         this.analyzer.fftSize = 256;
-        this.micAnalyzer = this.audioContext.createAnalyser();
-        this.micAnalyzer.fftSize = 256;
+        
+        // Create gain node for volume control
+        this.gainNode = this.audioContext.createGain();
+        this.gainNode.gain.value = 0.5; // Set initial volume
+        
+        // Connect analyzer through gain node to destination
+        this.gainNode.connect(this.audioContext.destination);
+        this.analyzer.connect(this.gainNode);
+        
+        // Setup Spotify audio input
+        await this.setupSpotifyAudio();
+    }
+
+    setupAudioAnalysis() {
+        // Subscribe to state changes to get currently playing track
+        this.player.addListener('player_state_changed', state => {
+            if (state) {
+                // Update audio element source when track changes
+                const trackUri = state.track_window.current_track.uri;
+                this.audioElement.src = `spotify:track:${trackUri}`;
+                
+                if (state.paused) {
+                    this.audioElement.pause();
+                } else {
+                    this.audioElement.play();
+                }
+            }
+        });
     }
 
     async setupMicrophone() {
@@ -82,8 +251,10 @@ class DJVisualizer {
     }
 
     drawWaveform() {
-        this.analyzer.getByteFrequencyData(this.audioData);
-        this.micAnalyzer.getByteFrequencyData(this.micData);
+        if (!this.analyzer || !this.isPlaying) return;
+
+        const dataArray = new Uint8Array(this.analyzer.frequencyBinCount);
+        this.analyzer.getByteFrequencyData(dataArray);
 
         const segments = 128;
         const angleStep = (Math.PI * 2) / segments;
@@ -91,7 +262,7 @@ class DJVisualizer {
         this.ctx.beginPath();
         for (let i = 0; i < segments; i++) {
             const angle = i * angleStep - Math.PI / 2;
-            const value = (this.audioData[i] + this.micData[i]) / 2;
+            const value = dataArray[i] || 0;
             const radius = this.radius + (value / 255) * 100;
 
             const x = this.center + Math.cos(angle) * radius;
@@ -103,6 +274,7 @@ class DJVisualizer {
                 this.ctx.lineTo(x, y);
             }
         }
+
         this.ctx.closePath();
         this.ctx.strokeStyle = '#1DB954';
         this.ctx.lineWidth = 2;
@@ -201,7 +373,18 @@ class DJVisualizer {
 }
 
 // Initialize visualizer when the page loads
-window.addEventListener('load', () => {
+window.addEventListener('load', async ()  => {
+    await new Promise((resolve) => {
+        if (window.Spotify) {
+            resolve();
+        } else {
+            window.onSpotifyWebPlaybackSDKReady = resolve;
+            const script = document.createElement('script');
+            script.src = 'https://sdk.scdn.co/spotify-player.js';
+            document.body.appendChild(script);
+        }
+    });
+
     const tipeo1 = new Typed(".multiple-message", {
         strings: ["Subir Volumen...", "Pausa...", "Siguiente...", "Continuar..."],
         typeSpeed: 70,
@@ -213,32 +396,38 @@ window.addEventListener('load', () => {
     const visualizer = new DJVisualizer();
     const voiceControlToggle = document.getElementById('start');
 
-    voiceControlToggle.addEventListener('click', function () { 
-        // Toggle recognition
-        if (!visualizer.isRecognitionActive) {
-            // Start recognition
-            if (!visualizer.recognition) {
-                visualizer.startSpeechRecognition();
+    try {
+        await visualizer.setupSpotifyPlayer();
+        console.log('Spotify player setup complete');
+        voiceControlToggle.addEventListener('click', function () { 
+            // Toggle recognition
+            if (!visualizer.isRecognitionActive) {
+                // Start recognition
+                if (!visualizer.recognition) {
+                    visualizer.startSpeechRecognition();
+                }
+                visualizer.recognition.start();
+                visualizer.isRecognitionActive = true;
+                voiceControlToggle.textContent = 'Stop';
+            } else {
+                // Stop recognition
+                visualizer.isRecognitionActive = false;
+                visualizer.recognition.stop();
+                visualizer.message.innerHTML = `Inicia el reconocimiento de voz y dí: <span class="multiple-message"></span>`
+                const tipeo2 = new Typed(".multiple-message", {
+                    strings: ["Subir Volumen...", "Pausa...", "Siguiente...", "Continuar..."],
+                    typeSpeed: 70,
+                    backSpeed: 70,
+                    backDelay: 1000,
+                    loop: true,
+                    showCursor: false,
+                })
+                voiceControlToggle.textContent = 'Start';
             }
-            visualizer.recognition.start();
-            visualizer.isRecognitionActive = true;
-            voiceControlToggle.textContent = 'Stop';
-        } else {
-            // Stop recognition
-            visualizer.isRecognitionActive = false;
-            visualizer.recognition.stop();
-            visualizer.micSource.disconnect();
-            visualizer.audioContext.close();
-            visualizer.message.innerHTML = `Inicia el reconocimiento de voz y dí: <span class="multiple-message"></span>`
-            const tipeo2 = new Typed(".multiple-message", {
-                strings: ["Subir Volumen...", "Pausa...", "Siguiente...", "Continuar..."],
-                typeSpeed: 70,
-                backSpeed: 70,
-                backDelay: 1000,
-                loop: true,
-                showCursor: false,
-            })
-            voiceControlToggle.textContent = 'Start';
-        }
-    });
+        });
+    } catch (error) {
+        console.error('Failed to setup Spotify player:', error);
+    }
+
+    
 });

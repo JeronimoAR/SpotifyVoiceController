@@ -76,6 +76,27 @@ def get_token():
         logger.error(f"Error getting token: {e}")
         return None
 
+@app.route('/get-spotify-token')
+@login_required
+def get_spotify_token():
+    token_info = get_token()
+    if token_info:
+        return jsonify({
+            'access_token': token_info['access_token']
+        })
+    return jsonify({'error': 'No token available'}), 401
+
+@app.route('/get-current-playback')
+@login_required
+def get_current_playback():
+    try:
+        token_info = get_token()
+        sp = spotipy.Spotify(auth=token_info['access_token'])
+        current_playback = sp.current_playback()
+        return jsonify(current_playback if current_playback else {})
+    except Exception as e:
+        print(f"Error getting playback: {e}")
+        return jsonify({'error': str(e)}), 500
 
 @app.route('/process_voice_command', methods=['POST'])
 @login_required
