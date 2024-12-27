@@ -100,11 +100,11 @@ def process_voice_command():
 
         if 'pausa' in command or 'detener' in command:
             sp.pause_playback(device_id=active_device_id)
-            return jsonify({'success': True, 'action': 'pausa'})
+            return jsonify({'success': True, 'action': 'Pausando...'})
 
         elif 'reproducir' in command or 'continuar' in command:
             sp.start_playback(device_id=active_device_id)
-            return jsonify({'success': True, 'action': 'reproducir'})
+            return jsonify({'success': True, 'action': 'Continuando la Reproducción'})
 
         elif 'siguiente' in command or 'saltar' in command:
             sp.next_track(device_id=active_device_id)

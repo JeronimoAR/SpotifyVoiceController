@@ -6,13 +6,14 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>VoiceRecogniser</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}">
-    <script src="{{ url_for('static', filename='js/DjVisualizer.js') }}"></script>
+    <script type="module" src="{{ url_for('static', filename='js/DjVisualizer.js') }}"></script>
 
     {% block head %}{% endblock %}
 </head>
 
 <body>
     {% block body %}{% endblock %}
+    <script src="https://unpkg.com/typed.js@2.0.15/dist/typed.umd.js"></script>
 </body>
 
 </html>

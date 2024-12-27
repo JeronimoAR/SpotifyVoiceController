@@ -5,6 +5,7 @@
 {% endblock %}
 
 {% block body %}
+<header><h1>Spotify Voice Controller</h1></header>
 <div class="container">
     <div class="visualizer-container">
         <canvas id="visualization-canvas"></canvas>
@@ -19,7 +20,7 @@
     </div>
     {% endif %}
 
-    <div id="message" class="message">Texto de prueba...</div>
+    <div id="message" class="message">Inicia el reconocimiento de voz y dí: <span class="multiple-message"></span></div>
 
     {% if track_info %}
     <div class="track-info">

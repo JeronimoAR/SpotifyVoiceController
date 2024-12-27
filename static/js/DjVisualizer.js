@@ -10,7 +10,6 @@ class DJVisualizer {
         this.recognition;
         this.message = document.getElementById('message');
         this.setupCanvas();
-        this.setupAudioContext();
         this.bindEvents();
         this.animate();
     }
@@ -40,8 +39,8 @@ class DJVisualizer {
     async setupMicrophone() {
         try {
             const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-            const micSource = this.audioContext.createMediaStreamSource(stream);
-            micSource.connect(this.micAnalyzer);
+            this.micSource = this.audioContext.createMediaStreamSource(stream);
+            this.micSource.connect(this.micAnalyzer);
             return true;
         } catch (error) {
             console.error('Error accessing microphone:', error);
@@ -53,6 +52,7 @@ class DJVisualizer {
         document.getElementById('start').addEventListener('click', () => {
             this.isPlaying = !this.isPlaying;
             if (this.isPlaying) {
+                this.setupAudioContext();
                 this.audioContext.resume();
             }
         });
@@ -202,10 +202,18 @@ class DJVisualizer {
 
 // Initialize visualizer when the page loads
 window.addEventListener('load', () => {
+    const tipeo1 = new Typed(".multiple-message", {
+        strings: ["Subir Volumen...", "Pausa...", "Siguiente...", "Continuar..."],
+        typeSpeed: 70,
+        backSpeed: 70,
+        backDelay: 1000,
+        loop: true,
+        showCursor: false,
+    });
     const visualizer = new DJVisualizer();
     const voiceControlToggle = document.getElementById('start');
 
-    voiceControlToggle.addEventListener('click', function () {
+    voiceControlToggle.addEventListener('click', function () { 
         // Toggle recognition
         if (!visualizer.isRecognitionActive) {
             // Start recognition
@@ -218,7 +226,18 @@ window.addEventListener('load', () => {
         } else {
             // Stop recognition
             visualizer.isRecognitionActive = false;
-            visualizer .recognition.stop();
+            visualizer.recognition.stop();
+            visualizer.micSource.disconnect();
+            visualizer.audioContext.close();
+            visualizer.message.innerHTML = `Inicia el reconocimiento de voz y dí: <span class="multiple-message"></span>`
+            const tipeo2 = new Typed(".multiple-message", {
+                strings: ["Subir Volumen...", "Pausa...", "Siguiente...", "Continuar..."],
+                typeSpeed: 70,
+                backSpeed: 70,
+                backDelay: 1000,
+                loop: true,
+                showCursor: false,
+            })
             voiceControlToggle.textContent = 'Start';
         }
     });
