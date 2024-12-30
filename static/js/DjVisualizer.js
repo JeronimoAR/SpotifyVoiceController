@@ -141,7 +141,7 @@ class DJVisualizer {
                             if (data.message != null) {
                                 message.textContent = data.message;
                             } else if (data.action != null) {
-                                console.log(data);
+                                //console.log(data);
                                 message.textContent = data.action;
                             }
                         }
@@ -161,7 +161,7 @@ class DJVisualizer {
                         break;
                     case 'no-speech':
                         // Ignore no-speech errors, continue listening
-                        console.log('No speech detected, continuing...');
+                        //console.log('No speech detected, continuing...');
                         break;
                     case 'network':
                         alert('Network error occurred during speech recognition.');
@@ -229,7 +229,7 @@ window.addEventListener('load', () => {
             visualizer.recognition.stop();
             visualizer.micSource.disconnect();
             visualizer.audioContext.close();
-            visualizer.message.innerHTML = `Inicia el reconocimiento de voz y dí: <span class="multiple-message"></span>`
+            visualizer.message.innerHTML = `Inicia el reconocimiento de voz y controla Spotify con comandos como: <span class="multiple-message"></span>`
             const tipeo2 = new Typed(".multiple-message", {
                 strings: ["Subir Volumen...", "Pausa...", "Siguiente...", "Continuar..."],
                 typeSpeed: 70,
