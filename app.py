@@ -24,10 +24,7 @@ client_id = os.getenv("CLIENT_ID")
 client_secret = os.getenv("CLIENT_SECRET")
 SPOTIPY_REDIRECT_URI = os.getenv("REDIRECT_URI")
 
-scope = 'user-read-private user-read-email user-library-read user-library-modify user-read-playback-state ' \
-        'user-modify-playback-state user-read-currently-playing playlist-read-private playlist-read-collaborative ' \
-        'playlist-modify-private playlist-modify-public user-follow-read user-follow-modify user-top-read ' \
-        'user-read-recently-played app-remote-control streaming'
+scope = 'user-read-playback-state user-modify-playback-state user-read-currently-playing app-remote-control streaming'
 
 # Voice command queue
 voice_command_queue = queue.Queue()
@@ -181,38 +178,6 @@ def index():
 
         if not active_device_id:
             message = "No active device found. Please activate a device on your Spotify account and try again."
-        else:
-            if request.method == 'POST':
-                # Check if it's a voice control request
-                if 'start_voice_control' in request.form:
-                    # Start voice control in a separate thread
-                    voice_thread = threading.Thread(
-                        target=process_voice_command,
-                        args=(sp, active_device_id),
-                        daemon=True
-                    )
-                    voice_thread.start()
-                    voice_control_active = True
-                    message = "Voice control activated. Start speaking commands!"
-                else:
-                    # Existing song search functionality
-                    song_name = request.form['song_name']
-                    results = sp.search(q=song_name, limit=1)
-                    if results['tracks']['items']:
-                        track = results['tracks']['items'][0]
-                        track_info = {
-                            'name': track['name'],
-                            'artist': track['artists'][0]['name'],
-                            'album': track['album']['name'],
-                        }
-                        sp.add_to_queue(track['id'], device_id=active_device_id)
-                        sp.next_track(device_id=active_device_id)
-                    else:
-                        track_info = {'error': 'Song not found'}
-            else:
-                playback = sp.current_playback()
-                if playback and not playback['is_playing']:
-                    sp.start_playback(device_id=active_device_id)
 
     except SpotifyOauthError as eAuth:
         logger.error(f"Spotify OAuth error: {eAuth}")

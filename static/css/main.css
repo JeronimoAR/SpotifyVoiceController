@@ -39,30 +39,25 @@ header{
 .visualizer-container {
     position: relative;
     width: 70%;
-    max-width: 500px;
-    margin: 0 auto;
-    margin-top: 20px;
-    aspect-ratio: 1;
+    display: flex;
+    justify-content: center;
+    align-items: center;
 }
 
 #visualization-canvas {
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
+    width: 400px;
+    height: 400px;
 }
 
 .controls {
-    top: 45%;
-    text-align: center;
     position: absolute;
+    text-align: center;
     z-index: 100;
 }
 
 .message{
     color: var(--success-green);
-    margin-top: -15px;
+    bottom: 20%;
 }
 
 .multiple-message{
