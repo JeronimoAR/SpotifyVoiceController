@@ -113,7 +113,7 @@ class SpotifyCommandProcessor:
         doc = self.nlp(command)
         matches = self.matcher(doc)
 
-        print(command)
+        #print(command)
 
         if not matches:
             return self.process_basic_command(command)
