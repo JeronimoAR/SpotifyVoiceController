@@ -6,8 +6,8 @@ from spotipy.oauth2 import SpotifyOAuth, SpotifyOauthError
 from spotipy import SpotifyException
 import logging
 from functools import wraps
-import threading
 import queue
+from command_processor import SpotifyCommandProcessor
 
 
 # Load environment variables and setup logging (unchanged)
@@ -18,6 +18,8 @@ logger = logging.getLogger(__name__)
 app = Flask(__name__)
 app.secret_key = os.getenv("SECRET_KEY", 'supersecretkey')
 app.config['SESSION_COOKIE_NAME'] = 'Spotify Auth Session'
+
+command_processor = SpotifyCommandProcessor()
 
 # Environment variables
 client_id = os.getenv("CLIENT_ID")
@@ -80,8 +82,12 @@ def process_voice_command():
     try:
         # Get the voice command from the frontend
         data = request.json
-        command = data.get('command', '').lower()
+        command = data.get('command', '')
 
+        # Process the command using our new processor
+        command_result = command_processor.process_command(command)
+
+        # Get Spotify client
         token_info = get_token()
         sp = spotipy.Spotify(auth=token_info['access_token'])
 
@@ -92,42 +98,63 @@ def process_voice_command():
         if not active_device_id:
             return jsonify({
                 'success': False,
-                'message': 'No active Spotify device found'
+                'message': 'No hay dispositivo activo de Spotify'
             }), 400
 
-        if 'pausa' in command or 'detener' in command:
+        # Handle the command based on the action
+        if command_result['action'] == 'play_song':
+            # Try exact search first
+            query = f"track:{command_result['song']} artist:{command_result['artist']}"
+            results = sp.search(q=query, type='track', limit=1)
+
+            if not results['tracks']['items']:
+                # If exact search fails, try a broader search
+                query = f"{command_result['song']} {command_result['artist']}"
+                results = sp.search(q=query, type='track', limit=1)
+
+            if results['tracks']['items']:
+                track_uri = results['tracks']['items'][0]['uri']
+                track_name = results['tracks']['items'][0]['name']
+                artist_name = results['tracks']['items'][0]['artists'][0]['name']
+
+                # Queue and play the track
+                sp.add_to_queue(device_id=active_device_id, uri=track_uri)
+                sp.next_track(device_id=active_device_id)
+
+                return jsonify({
+                    'success': True,
+                    'message': f"Reproduciendo {track_name} de {artist_name}"
+                })
+
+        # Handle basic commands
+        elif command_result['action'] == 'pause':
             sp.pause_playback(device_id=active_device_id)
-            return jsonify({'success': True, 'action': 'Pausando...'})
-
-        elif 'reproducir' in command or 'continuar' in command:
+        elif command_result['action'] == 'resume':
             sp.start_playback(device_id=active_device_id)
-            return jsonify({'success': True, 'action': 'Continuando la Reproducción'})
-
-        elif 'siguiente' in command or 'saltar' in command:
+        elif command_result['action'] == 'next':
             sp.next_track(device_id=active_device_id)
-            return jsonify({'success': True, 'action': 'Siguiente canción'})
-
-        elif 'anterior' in command or 'atrás' in command:
+        elif command_result['action'] == 'previous':
             sp.previous_track(device_id=active_device_id)
-            return jsonify({'success': True, 'action': 'Cancion anterior'})
-
-        elif 'subir volumen' in command:
+        elif command_result['action'] == 'volume_up':
             current_playback = sp.current_playback()
             current_volume = current_playback['device']['volume_percent']
             sp.volume(min(current_volume + 10, 100), device_id=active_device_id)
-            return jsonify({'success': True, 'action': 'Mas Volumen'})
-
-        elif 'bajar volumen' in command:
+        elif command_result['action'] == 'volume_down':
             current_playback = sp.current_playback()
             current_volume = current_playback['device']['volume_percent']
             sp.volume(max(current_volume - 10, 0), device_id=active_device_id)
-            return jsonify({'success': True, 'action': 'Menos Volumen'})
 
         return jsonify({
             'success': True,
-            'message': 'Comando no reconocido...'
+            'message': command_result['message']
         })
 
+    except SpotifyException as e:
+        logger.error(f"Spotify API error: {e}")
+        return jsonify({
+            'success': False,
+            'message': 'Error al comunicarse con Spotify'
+        }), 500
     except Exception as e:
         logger.error(f"Voice command processing error: {e}")
         return jsonify({
