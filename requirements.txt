@@ -9,4 +9,3 @@ gunicorn==20.1.0
 wheel
 pyaudio==0.2.11
 spacy>=3.0.0
-https://github.com/explosion/spacy-models/releases/download/es_core_news_sm-3.0.0/es_core_news_sm-3.0.0.tar.gz
