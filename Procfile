@@ -1,2 +1,1 @@
-web: gunicorn app:app
-python -m spacy download es_core_news_sm
+web: python -m spacy download es_core_news_sm && gunicorn app:app
